@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  ocr:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    image: hertzg/tesseract-server:dev
+    ports:
+      - 8080:3000

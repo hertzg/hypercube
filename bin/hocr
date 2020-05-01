@@ -1,0 +1,179 @@
+#!/usr/bin/env node
+
+const fs = require("fs");
+const canvas = require("canvas");
+const open = require("open");
+const hocr = require("node-hocr");
+const Assert = require("assert");
+const [imagePath, hocrPath] = process.argv.slice(2);
+const randomColor = require("randomcolor");
+const Path = require("path");
+const geometric = require("geometric");
+
+const crop = (origin, x, y, w, h) => {
+  const cvs = canvas.createCanvas(w, h);
+  const ctx = cvs.getContext("2d");
+  ctx.drawImage(origin, x, y, w, h, 0, 0, cvs.width, cvs.height);
+  return cvs;
+};
+
+const makePolygon = a => {
+  const al = { x: a.x, y: a.y };
+  const ar = { x: a.x + a.w, y: a.y + a.h };
+  return [[al.x, al.y], [ar.x, al.y], [ar.x, ar.y], [al.x, ar.y]];
+};
+
+const makeBBox = ([[x, y], [rx, ry]]) => ({x, y, w: rx - x, h: ry - y});
+
+const closePolygon = ([first, ...rest]) => [first, ...rest, first];
+
+const isIntersecting = (a, b) => {
+  const pa = closePolygon(makePolygon(a));
+  const pb = closePolygon(makePolygon(b));
+  return (
+    geometric.polygonIntersectsPolygon(pa, pb) ||
+    geometric.polygonInPolygon(pa, pb) ||
+    geometric.polygonInPolygon(pb, pa)
+  );
+};
+
+function flattenBBoxes(page) {
+  return page.par.flatMap(p =>
+    p.line.flatMap(l =>
+      l.infos
+        .split(";")
+        .map(s => s.trim())
+        .reduce((acc, info) => {
+          if (info.startsWith("bbox")) {
+            const [x, y, x1, y1] = info
+              .split(" ")
+              .map(s => s.trim())
+              .map(s => Number(s))
+              .filter(n => !isNaN(n));
+
+            acc.bbox = { x, y, w: Math.abs(x1 - x), h: Math.abs(y1 - y) };
+          } else {
+            const [k, v] = info.split(" ").map(s => s.trim());
+            acc[k] = isNaN(Number(v)) ? v : Number(v);
+          }
+
+          return acc;
+        }, {})
+    )
+  );
+}
+
+const clusterBBoxes = _bboxes => {
+  const mapPush = (map, key, ...values) => {
+    if (map.has(key)) {
+      map.get(key).push(...values);
+    } else {
+      map.set(key, values);
+    }
+  };
+
+  let bboxes = _bboxes;
+  while (true) {
+    const toMerge = new Map();
+
+    // find touching rectangles
+    bboxes.forEach(bbox => {
+      const intersecting = bboxes
+        .filter(
+          b =>
+            !(
+              b.x === bbox.x &&
+              b.y === bbox.y &&
+              b.w === bbox.w &&
+              b.h === bbox.h
+            )
+        )
+        .filter(b => isIntersecting(bbox, b));
+
+      if (intersecting.length) {
+        hadIntersections = true;
+        mapPush(toMerge, bbox, ...intersecting);
+      }
+    });
+
+    if (toMerge.size === 0) {
+      break;
+    }
+
+    const toMergeEntries = Array.from(toMerge.entries())
+      .filter(([, v]) => v.length)
+      .map(([k, v]) => [
+        k,
+        v.slice().sort((a, b) => {
+          return b.w - a.w + (b.h - a.h);
+        })
+      ])
+      .sort(([, [a]], [, [b]]) => {
+        return b.w - a.w + (b.h - a.h);
+      });
+
+    bboxes = toMergeEntries.reduce((acc, [a, bs]) => {
+      const polygon = [...makePolygon(a), ...bs.flatMap(makePolygon)];
+      const bounds = geometric.polygonBounds(polygon);
+      const [[lx, ly], [rx, ry]] = bounds;
+      const bbox = { x: lx, y: ly, w: rx - lx, h: ry - ly };
+      acc.push(bbox);
+
+      return acc;
+    }, []);
+  }
+
+  console.log(bboxes);
+};
+
+new hocr.Hocr(fs.readFileSync(hocrPath, { encoding: "utf8" }), (err, hocr) => {
+  if (err) {
+    throw err;
+  }
+
+  const [page] = hocr;
+
+  canvas
+    .loadImage(imagePath)
+    .then(backgroundImage => {
+      const cvs = canvas.createCanvas(
+        backgroundImage.width,
+        backgroundImage.height
+      );
+
+      const bboxes = flattenBBoxes(page).filter(
+        bbox =>
+          !(
+            bbox.x === 0 &&
+            bbox.x === 0 &&
+            bbox.w === backgroundImage.width &&
+            bbox.h === backgroundImage.height
+          )
+      );
+
+      const bboxClusters = clusterBBoxes(bboxes.map(({ bbox }) => bbox));
+
+      const ctx = cvs.getContext("2d");
+
+      ctx.drawImage(backgroundImage, 0, 0);
+
+      bboxes.forEach(({ bbox: { x, y, w, h } }) => {
+        ctx.strokeStyle = randomColor();
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, w, h);
+        ctx.setLineDash([]);
+
+        const slice = crop(backgroundImage, x, y, w, h);
+        fs.writeFileSync(
+          Path.join("./slices", `${x}-${y}-${w}-${h}.png`),
+          slice.toBuffer("image/png")
+        );
+      });
+
+      fs.writeFileSync(imagePath + ".baked.png", cvs.toBuffer("image/png"));
+    })
+    .catch(e => {
+      debugger;
+      throw e;
+    });
+});
