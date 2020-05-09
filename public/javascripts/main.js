@@ -11,6 +11,8 @@ $(function() {
     enableBasicAutocompletion: true
   });
 
+  const target = $("#target");
+
   $("form").submit(function(e) {
     e.preventDefault();
     const me = $(this);
@@ -26,25 +28,19 @@ $(function() {
     $.ajax({
       type: me.attr("method"),
       enctype: me.attr("enctype"),
-      url: me.attr("action"),
+      url: target.val(),
       data: formData,
       processData: false,
       contentType: false,
       cache: false,
       success: data => {
         const prev = $("#prev").text();
-        const latest = data.response.output;
+        const latest =
+          typeof data.response.output === "object"
+            ? JSON.stringify(data.response.output, null, 2)
+            : data.response.output;
 
-        const maxRows = Math.max(
-          latest.split("\n").length,
-          prev.split("\n").length
-        );
-
-        $("#output")
-          .text(latest)
-          .attr("rows", maxRows);
-
-        $("#prev").attr("rows", maxRows);
+        $("#output").text(latest);
       },
       error: () => {
         $("#output").text("Error!");
@@ -71,7 +67,7 @@ $(function() {
               name: key,
               value: key,
               caption: `${key} [${defaultValue}] - ${description}`,
-              meta: 'tesseract',
+              meta: "tesseract",
               score: score
             })
           );
