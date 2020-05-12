@@ -2,6 +2,8 @@ name: Docker Image CI
 
 on:
   push:
+    branches: 
+      - master
     
 jobs:
 
@@ -27,12 +29,6 @@ jobs:
       
       - name: "[GitHub] Login"
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username ${{ github.actor }} --password-stdin
-      
-      - name: "[GitHub] Publish pull request"
-        if: env.GITHUB_REF_SHORT != 'master'
-        run: |
-          docker tag hypercube:${{ env.GITHUB_BUILD_REF }} ${{ env.IMAGE_PREFIX }}:${{ env.GITHUB_BUILD_REF }}
-          docker push ${{ env.IMAGE_PREFIX }}:${{ env.GITHUB_BUILD_REF }}
 
       - name: "[GitHub] Publish latest"
         if: env.GITHUB_REF_SHORT == 'master'
