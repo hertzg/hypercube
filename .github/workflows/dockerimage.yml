@@ -21,24 +21,24 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v2
         with:
-          name: docker-image
+          name: docker-hypercube-${{ github.ref }}-${{ github.sha }}.tgz
           path: ${{ github.sha }}.tgz
-      
   
   publish:
-    
     runs-on: ubuntu-latest
-    steps: 
-      - uses: actions/download-artifact@v2
+    needs: [build]
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v2
         with:
-          name: docker-image
+          name: docker-hypercube-${{ github.ref }}-${{ github.sha }}.tgz
           path: ${{ github.sha }}.tgz
-      
-      - name: Uncompress & Load
+
+      - name: Docker Load
         run: docker load ${{ github.sha }}.tgz
-        
+      
       - name: Publish to Github
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username ${{ github.actor }} --password-stdin
-          docker tag hypercube:${{ github.sha }} docker.pkg.github.com/${{ github.repository }}/hypercube:${{ github.sha }}
-          docker push docker.pkg.github.com/${{ github.repository }}/hypercube:${{ github.sha }}
+          docker tag hypercube:${{ github.sha }} docker.pkg.github.com/${{ github.repository }}/hypercube:git-${{ github.ref }}-${{ github.sha }}
+          docker push docker.pkg.github.com/${{ github.repository }}/hypercube:git-${{ github.ref }}-${{ github.sha }}
