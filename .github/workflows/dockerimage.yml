@@ -16,21 +16,21 @@ jobs:
         run: |
           echo ::set-env name=GITHUB_SHA_SHORT::$(echo $GITHUB_SHA | cut -c 1-6)
           echo ::set-env name=GITHUB_REF_SHORT::$(echo ${GITHUB_REF##*/})
-          echo ::set-env name=GITHUB_BUILD_REF::$(echo $GITHUB_REF_SHORT$GITHUB_SHA_SHORT)
-          echo ::set-env name=IMAGE_PREFIX::$(echo docker.pkg.github.com/${{ github.repository }}/hypercube)
+          echo ::set-env name=$GITHUB_BUILD_REF::$(echo $GITHUB_REF_SHORT$GITHUB_SHA_SHORT)
+          echo ::set-env name=$IMAGE_PREFIX::$(echo docker.pkg.github.com/${{ github.repository }}/hypercube)
       
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag hypercube:$GITHUB_BUILD_REF
+        run: docker build . --file Dockerfile --tag hypercube:${{ env.GITHUB_BUILD_REF }}
       
       - name: "[GitHub] Login"
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username ${{ github.actor }} --password-stdin
       
       - name: "[GitHub] Publish ref"
         run: |
-          docker push $IMAGE_PREFIX:$GITHUB_BUILD_REF
+          docker push ${{ env.IMAGE_PREFIX }}:${{ env.GITHUB_BUILD_REF }}
 
       - name: "[GitHub] Publish latest"
         if: env.GITHUB_REF_SHORT == 'master'
         run: |
-          docker tag hypercube:$GITHUB_BUILD_REF $IMAGE_PREFIX:latest
-          docker push $IMAGE_PREFIX:latest
+          docker tag hypercube:${{ env.GITHUB_BUILD_REF }} ${{ env.IMAGE_PREFIX }}:latest
+          docker push ${{ env.IMAGE_PREFIX }}:latest
