@@ -11,8 +11,6 @@ $(function() {
     enableBasicAutocompletion: true
   });
 
-  const target = $("#target");
-
   $("form").submit(function(e) {
     e.preventDefault();
     const me = $(this);
@@ -21,6 +19,10 @@ $(function() {
     $("#output").text("Processing...");
 
     const formData = new FormData(this);
+    if (formData.has("l") && formData.get("l").length > 1) {
+      formData.set("l", formData.getAll("l").join("+"));
+    }
+
     Object.entries(eval(`(${configEditor.getValue()});`)).forEach(([k, v]) =>
       formData.set(k, v)
     );
@@ -28,7 +30,7 @@ $(function() {
     $.ajax({
       type: me.attr("method"),
       enctype: me.attr("enctype"),
-      url: target.val(),
+      url: me.attr("action"),
       data: formData,
       processData: false,
       contentType: false,
@@ -46,6 +48,20 @@ $(function() {
         $("#output").text("Error!");
       }
     });
+  });
+
+  $.ajax({
+    type: "get",
+    url: "/tesseract/languages",
+    success: ({ data }) => {
+      data.forEach(lang => {
+        $("#langs").append(
+          $("<option>")
+            .attr("value", lang)
+            .text(lang)
+        );
+      });
+    }
   });
 
   $.ajax({
@@ -72,7 +88,6 @@ $(function() {
             })
           );
 
-          console.log(prefix, completions);
           callback(null, completions);
         }
       });

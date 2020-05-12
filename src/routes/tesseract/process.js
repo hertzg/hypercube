@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const spawnBuffer = require("../../tesseract/spawnBuffer");
+const runOCR = require("../../tesseract/ocr/run");
 const multer = require("multer");
-const { BufferListStream } = require("bl");
+const debug = require("../../../debug")(__filename);
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -25,18 +25,23 @@ router.all("/", upload.any(), function(req, res, next) {
     delete options.configFiles;
   }
 
-  const proc = spawnBuffer(options, configFiles, (err, { stdout, stderr }) => {
+  const proc = runOCR(options, configFiles, (err, { exit, stdout, stderr }) => {
     res.json({
       configuration: {
         options,
         configFiles
       },
       response: {
-        err,
-        stderr: stderr.toString("utf8"),
-        output: stdout.toString("utf8")
+        exit,
+        stderr: stderr ? stderr.toString("utf8") : null,
+        output: exit.code === 0 ? stdout.toString("utf8") : null
       }
     });
+  });
+
+  // TODO: Better error handling
+  proc.stdin.once("error", err => {
+    debug("stdin error", err);
   });
   proc.stdin.end(req.files[0].buffer);
 });
