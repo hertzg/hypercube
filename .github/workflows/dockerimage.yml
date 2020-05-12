@@ -2,10 +2,7 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
+    
 jobs:
 
   build:
@@ -13,6 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag hypercube:master-$GITHUB_SHA
+      - uses: actions/checkout@v2
+      
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag hypercube:${{ github.sha }}
+      
+      - name: Save & Compress
+        run: docker save hypercube:${{ github.sha }} | gzip > ${{ github.sha }}.tgz
+        
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: docker-image
+          path: ${{ github.sha }}.tgz
+      
+  
+  publish:
+    
+    runs-on: ubuntu-latest
+    steps: 
+      - uses: actions/download-artifact@v2
+        with:
+          name: docker-image
+          path: ${{ github.sha }}.tgz
+      
+      - name: Uncompress & Load
+        run: docker load ${{ github.sha }}.tgz
+        
+      - name: Publish to Github
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username ${{ github.actor }} --password-stdin
+          docker tag hypercube:${{ github.sha }} docker.pkg.github.com/${{ github.repository }}/hypercube:${{ github.sha }}
+          docker push docker.pkg.github.com/${{ github.repository }}/hypercube:${{ github.sha }}
