@@ -16,8 +16,8 @@ jobs:
         run: |
           echo ::set-env name=GITHUB_SHA_SHORT::$(echo $GITHUB_SHA | cut -c 1-6)
           echo ::set-env name=GITHUB_REF_SHORT::$(echo ${GITHUB_REF##*/})
-          echo ::set-env name=$GITHUB_BUILD_REF::$(echo $GITHUB_REF_SHORT$GITHUB_SHA_SHORT)
-          echo ::set-env name=$IMAGE_PREFIX::$(echo docker.pkg.github.com/${{ github.repository }}/hypercube)
+          echo ::set-env name=GITHUB_BUILD_REF::$(echo $GITHUB_REF_SHORT$GITHUB_SHA_SHORT)
+          echo ::set-env name=IMAGE_PREFIX::$(echo docker.pkg.github.com/${{ github.repository }}/hypercube)
       
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag hypercube:${{ env.GITHUB_BUILD_REF }}
