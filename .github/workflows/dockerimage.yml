@@ -30,7 +30,7 @@ jobs:
           docker push $IMAGE_PREFIX:$GITHUB_BUILD_REF
 
       - name: "[GitHub] Publish latest"
-        if: $GITHUB_REF_SHORT == 'master'
+        if: env.GITHUB_REF_SHORT == 'master'
         run: |
           docker tag hypercube:$GITHUB_BUILD_REF $IMAGE_PREFIX:latest
           docker push $IMAGE_PREFIX:latest
