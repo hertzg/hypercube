@@ -20,7 +20,7 @@ jobs:
       
       - name: Set ENV
         run: |
-          echo ::set-env name=GITHUB_BUILD_REF::$(echo $GITHUB_REF_SHORT$GITHUB_SHA_SHORT)
+          echo ::set-env name=GITHUB_BUILD_REF::$(echo $GITHUB_REF_SHORT-$GITHUB_SHA_SHORT)
       
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag hypercube:${{ env.GITHUB_BUILD_REF }}
@@ -28,8 +28,10 @@ jobs:
       - name: "[GitHub] Login"
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username ${{ github.actor }} --password-stdin
       
-      - name: "[GitHub] Publish ref"
+      - name: "[GitHub] Publish pull request"
+        if: env.GITHUB_REF_SHORT != 'master'
         run: |
+          docker tag hypercube:${{ env.GITHUB_BUILD_REF }} ${{ env.IMAGE_PREFIX }}:${{ env.GITHUB_BUILD_REF }}
           docker push ${{ env.IMAGE_PREFIX }}:${{ env.GITHUB_BUILD_REF }}
 
       - name: "[GitHub] Publish latest"
