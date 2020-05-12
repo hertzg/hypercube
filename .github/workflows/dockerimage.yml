@@ -5,40 +5,32 @@ on:
     
 jobs:
 
-  build:
+  push:
 
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
       
-      - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag hypercube:${{ github.sha }}
-      
-      - name: Save & Compress
-        run: docker save hypercube:${{ github.sha }} | gzip > ${{ github.sha }}.tgz
-        
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: docker-hypercube-${{ github.ref }}-${{ github.sha }}.tgz
-          path: ${{ github.sha }}.tgz
-  
-  publish:
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Download Artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: docker-hypercube-${{ github.ref }}-${{ github.sha }}.tgz
-          path: ${{ github.sha }}.tgz
-
-      - name: Docker Load
-        run: docker load ${{ github.sha }}.tgz
-      
-      - name: Publish to Github
+      - name: Set ENV
         run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username ${{ github.actor }} --password-stdin
-          docker tag hypercube:${{ github.sha }} docker.pkg.github.com/${{ github.repository }}/hypercube:git-${{ github.ref }}-${{ github.sha }}
-          docker push docker.pkg.github.com/${{ github.repository }}/hypercube:git-${{ github.ref }}-${{ github.sha }}
+          echo ::set-env name=GITHUB_SHA_SHORT::$(echo $GITHUB_SHA | cut -c 1-6)
+          echo ::set-env name=GITHUB_REF_SHORT::$(echo ${GITHUB_REF##*/})
+          echo ::set-env name=GITHUB_BUILD_REF::$(echo $GITHUB_REF_SHORT$GITHUB_SHA_SHORT)
+          echo ::set-env name=IMAGE_PREFIX::$(echo docker.pkg.github.com/${{ github.repository }}/hypercube)
+      
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag hypercube:$GITHUB_BUILD_REF
+      
+      - name: "[GitHub] Login"
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username ${{ github.actor }} --password-stdin
+      
+      - name: "[GitHub] Publish ref"
+        run: |
+          docker push $IMAGE_PREFIX:$GITHUB_BUILD_REF
+
+      - name: "[GitHub] Publish latest"
+        if: $GITHUB_REF_SHORT == 'master'
+        run: |
+          docker tag hypercube:$GITHUB_BUILD_REF $IMAGE_PREFIX:latest
+          docker push $IMAGE_PREFIX:latest
