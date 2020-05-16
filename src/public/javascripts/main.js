@@ -19,6 +19,10 @@ $(function() {
     $("#output").text("Processing...");
 
     const formData = new FormData(this);
+    if (formData.has("l") && formData.get("l").length > 1) {
+      formData.set("l", formData.getAll("l").join("+"));
+    }
+
     Object.entries(eval(`(${configEditor.getValue()});`)).forEach(([k, v]) =>
       formData.set(k, v)
     );
@@ -33,23 +37,31 @@ $(function() {
       cache: false,
       success: data => {
         const prev = $("#prev").text();
-        const latest = data.response.output;
+        const latest =
+          typeof data.response.output === "object"
+            ? JSON.stringify(data.response.output, null, 2)
+            : data.response.output;
 
-        const maxRows = Math.max(
-          latest.split("\n").length,
-          prev.split("\n").length
-        );
-
-        $("#output")
-          .text(latest)
-          .attr("rows", maxRows);
-
-        $("#prev").attr("rows", maxRows);
+        $("#output").text(latest);
       },
       error: () => {
         $("#output").text("Error!");
       }
     });
+  });
+
+  $.ajax({
+    type: "get",
+    url: "/tesseract/languages",
+    success: ({ data }) => {
+      data.forEach(lang => {
+        $("#langs").append(
+          $("<option>")
+            .attr("value", lang)
+            .text(lang)
+        );
+      });
+    }
   });
 
   $.ajax({
@@ -71,12 +83,11 @@ $(function() {
               name: key,
               value: key,
               caption: `${key} [${defaultValue}] - ${description}`,
-              meta: 'tesseract',
+              meta: "tesseract",
               score: score
             })
           );
 
-          console.log(prefix, completions);
           callback(null, completions);
         }
       });

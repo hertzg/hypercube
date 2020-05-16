@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hypercube
+  namespace: hypercube
+  labels:
+    app: hypercube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hypercube
+  template:
+    metadata:
+      labels:
+        app: hypercube
+    spec:
+      containers:
+        - name: hypercube
+          image: hertzg/hypercube:latest
+          ports:
+            - name: "http"
+              containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: 200m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hypercube
+  namespace: hypercube
+  labels:
+    app: hypercube
+spec:
+  selector:
+    app: hypercube
+  ports:
+    - name: "http"
+      port: 80
+      targetPort: "http"
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: hypercube
+  namespace: hypercube
+  labels:
+    app: hypercube
+#  annotations:
+#    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: hypercube.example.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: hypercube
+              servicePort: http
+  tls:
+    - hosts:
+        - hypercube.hertzg.dev
+      secretName: hypercube-hertzg-dev-cert
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hypercube
+  namespace: hypercube
+  labels:
+    app: hypercube
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: hypercube
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 70
+

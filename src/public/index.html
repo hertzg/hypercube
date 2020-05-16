@@ -29,18 +29,33 @@
         enctype="multipart/form-data"
       >
         <div class="row">
-          <div class="form-group col">
-            <label for="files">
-              Files:
-            </label>
-            <input
-              class="form-control-file"
-              id="files"
-              type="file"
-              name="files"
-              multiple
-              required
-            />
+          <div class="col">
+            <div class="form-group">
+              <label for="files">
+                Files:
+              </label>
+              <input
+                class="form-control-file"
+                id="files"
+                type="file"
+                name="files"
+                multiple
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="langs">
+                Languages:
+              </label>
+              <select
+                id="langs"
+                name="l"
+                multiple
+                class="form-control"
+                required
+              >
+              </select>
+            </div>
           </div>
 
           <div class="form-group col">

@@ -5,6 +5,6 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
-    image: hertzg/tesseract-server:dev
+    image: hertzg/hypercube:dev
     ports:
       - 8080:3000
